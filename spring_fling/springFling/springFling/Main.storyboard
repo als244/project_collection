@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="15705" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="5Aa-8s-vcd">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="15706"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--LandingController-->
+        <scene sceneID="wVs-zH-y5o">
+            <objects>
+                <tabBarController storyboardIdentifier="LandingController" title="LandingController" id="Qc3-Kx-sMb" sceneMemberID="viewController">
+                    <navigationItem key="navigationItem" id="erP-sD-KUm"/>
+                    <tabBar key="tabBar" contentMode="scaleToFill" insetsLayoutMarginsFromSafeArea="NO" barStyle="black" translucent="NO" id="Q4X-gD-t6d">
+                        <rect key="frame" x="0.0" y="0.0" width="414" height="49"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <color key="barTintColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <color key="selectedImageTintColor" systemColor="systemBlueColor" red="0.0" green="0.47843137250000001" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                    </tabBar>
+                    <connections>
+                        <segue destination="Lyi-xp-jSQ" kind="relationship" relationship="viewControllers" id="Cqc-4X-WzR"/>
+                        <segue destination="WJH-Fq-dmt" kind="relationship" relationship="viewControllers" id="u6f-K4-AdK"/>
+                        <segue destination="r2R-w5-OQ9" kind="relationship" relationship="viewControllers" id="Mbe-h7-YYR"/>
+                        <segue destination="Hh0-t0-vE8" kind="relationship" relationship="viewControllers" id="cRM-OK-8bx"/>
+                        <segue destination="7T7-Gj-Omb" kind="relationship" relationship="viewControllers" id="qlT-Wj-6Ha"/>
+                    </connections>
+                </tabBarController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="Va3-Sz-Yat" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-1696" y="-587"/>
+        </scene>
+        <!--LaunchScreen-->
+        <scene sceneID="UVP-xO-BBX">
+            <objects>
+                <viewController storyboardIdentifier="LaunchScreen" title="LaunchScreen" id="5Aa-8s-vcd" customClass="LaunchViewController" customModule="springFling" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="yUL-Uf-UW4">
+                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" insetsLayoutMarginsFromSafeArea="NO" image="nuFling" translatesAutoresizingMaskIntoConstraints="NO" id="c2O-el-xVZ">
+                                <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                            </imageView>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="yaleLogo" translatesAutoresizingMaskIntoConstraints="NO" id="Q7E-ja-C0Q">
+                                <rect key="frame" x="0.0" y="181" width="414" height="128"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="128" id="ZLf-hV-Zp5"/>
+                                </constraints>
+                            </imageView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Spring Fling" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Elg-wJ-l0y">
+                                <rect key="frame" x="57" y="317" width="300" height="285"/>
+                                <fontDescription key="fontDescription" name="Copperplate" family="Copperplate" pointSize="80"/>
+                                <color key="textColor" red="0.26051741839999998" green="0.2605243921" blue="0.260520637" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="tintColor" red="0.0" green="0.32852089410000002" blue="0.57488495110000004" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="Q7E-ja-C0Q" firstAttribute="top" secondItem="CJ7-Vw-yMB" secondAttribute="top" constant="137" id="2W7-Et-I4i"/>
+                            <constraint firstItem="Elg-wJ-l0y" firstAttribute="top" secondItem="Q7E-ja-C0Q" secondAttribute="bottom" constant="8" symbolic="YES" id="4G6-gv-W9a"/>
+                            <constraint firstItem="Q7E-ja-C0Q" firstAttribute="leading" secondItem="yUL-Uf-UW4" secondAttribute="leading" id="4u9-q7-xAX"/>
+                            <constraint firstAttribute="trailing" secondItem="c2O-el-xVZ" secondAttribute="trailing" id="5RU-LX-uo4"/>
+                            <constraint firstItem="CJ7-Vw-yMB" firstAttribute="bottom" secondItem="Elg-wJ-l0y" secondAttribute="bottom" constant="260" id="AbA-Uu-6aT"/>
+                            <constraint firstItem="Elg-wJ-l0y" firstAttribute="centerX" secondItem="yUL-Uf-UW4" secondAttribute="centerX" id="CfI-iD-f8T"/>
+                            <constraint firstItem="c2O-el-xVZ" firstAttribute="top" secondItem="yUL-Uf-UW4" secondAttribute="top" id="G21-Nh-6ya"/>
+                            <constraint firstAttribute="trailing" secondItem="Q7E-ja-C0Q" secondAttribute="trailing" id="GFi-Fm-JqF"/>
+                            <constraint firstItem="Elg-wJ-l0y" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="yUL-Uf-UW4" secondAttribute="leading" id="aFk-k6-3tN"/>
+                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="Elg-wJ-l0y" secondAttribute="trailing" id="eCe-76-HNI"/>
+                            <constraint firstAttribute="bottom" secondItem="c2O-el-xVZ" secondAttribute="bottom" id="hqR-NC-prq"/>
+                            <constraint firstItem="c2O-el-xVZ" firstAttribute="leading" secondItem="yUL-Uf-UW4" secondAttribute="leading" id="oiD-FX-JUO"/>
+                            <constraint firstItem="Q7E-ja-C0Q" firstAttribute="centerX" secondItem="yUL-Uf-UW4" secondAttribute="centerX" id="v0J-IR-Weq"/>
+                        </constraints>
+                        <viewLayoutGuide key="safeArea" id="CJ7-Vw-yMB"/>
+                    </view>
+                    <connections>
+                        <segue destination="Qc3-Kx-sMb" kind="presentation" identifier="LaunchSegue" modalPresentationStyle="fullScreen" id="u7b-gR-70q"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="fjk-qX-J6f" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-2552.1739130434785" y="-587.27678571428567"/>
+        </scene>
+        <!--home-->
+        <scene sceneID="Z6e-Vo-0FK">
+            <objects>
+                <viewControllerPlaceholder storyboardName="home" id="YuS-9p-mge" sceneMemberID="viewController">
+                    <tabBarItem key="tabBarItem" title="Home" image="home" id="c8Q-zP-5ps" userLabel="HomeLabel"/>
+                </viewControllerPlaceholder>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="VCw-RD-YgQ" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-3272" y="-117"/>
+        </scene>
+        <!--announcements-->
+        <scene sceneID="6Ok-tx-Zpy">
+            <objects>
+                <viewControllerPlaceholder storyboardName="announcements" id="r2R-w5-OQ9" sceneMemberID="viewController">
+                    <tabBarItem key="tabBarItem" title="Announcements" image="announcements" id="urA-bL-4zu" userLabel="AnnouncementsLabel">
+                        <color key="badgeColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    </tabBarItem>
+                </viewControllerPlaceholder>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="hLa-ty-f01" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-1962" y="-151"/>
+        </scene>
+        <!--lineup-->
+        <scene sceneID="hSI-ev-uHc">
+            <objects>
+                <viewControllerPlaceholder storyboardName="lineup" id="Lyi-xp-jSQ" sceneMemberID="viewController">
+                    <tabBarItem key="tabBarItem" title="Schedule" image="lineup" id="swY-gn-Lyv" userLabel="LineupLabel">
+                        <color key="badgeColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    </tabBarItem>
+                </viewControllerPlaceholder>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="vQF-yS-cyS" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-1697" y="-151"/>
+        </scene>
+        <!--faq-->
+        <scene sceneID="2WP-tp-5Oi">
+            <objects>
+                <viewControllerPlaceholder storyboardName="faq" id="WJH-Fq-dmt" sceneMemberID="viewController">
+                    <tabBarItem key="tabBarItem" title="FAQ" image="faq" id="SIo-od-tLq" userLabel="FAQLabel">
+                        <color key="badgeColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    </tabBarItem>
+                </viewControllerPlaceholder>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="aei-eg-b7V" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-2183" y="-151"/>
+        </scene>
+        <!--resources-->
+        <scene sceneID="r7Q-XU-2H5">
+            <objects>
+                <viewControllerPlaceholder storyboardName="resources" id="7T7-Gj-Omb" sceneMemberID="viewController">
+                    <tabBarItem key="tabBarItem" title="Resources" image="resources" id="ELT-Hf-8W3" userLabel="ResourcesLabel">
+                        <color key="badgeColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    </tabBarItem>
+                </viewControllerPlaceholder>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="a2F-DT-tG0" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-1225" y="-151"/>
+        </scene>
+        <!--merch-->
+        <scene sceneID="dlw-t3-iCr">
+            <objects>
+                <viewControllerPlaceholder storyboardName="merch" id="Hh0-t0-vE8" sceneMemberID="viewController">
+                    <tabBarItem key="tabBarItem" title="Shop" image="bag" catalog="system" id="OxJ-T8-sdq" userLabel="MerchandiseLabel"/>
+                </viewControllerPlaceholder>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="NCE-Bo-c1V" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-1495" y="-151"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="announcements" width="25" height="25"/>
+        <image name="bag" catalog="system" width="64" height="64"/>
+        <image name="faq" width="25" height="25"/>
+        <image name="home" width="25" height="25"/>
+        <image name="lineup" width="25" height="25"/>
+        <image name="nuFling" width="572" height="1125"/>
+        <image name="resources" width="25" height="25"/>
+        <image name="yaleLogo" width="1280" height="553"/>
+    </resources>
+</document>

@@ -1,0 +1,288 @@
+{% extends "layout.html" %}
+
+{% block title %} DFA {% endblock title %}
+
+{% block content %} 
+<p></p>
+<form method="POST">
+{{ form.csrf_token }}
+<div class="container">
+	<div class="card">
+		<div class="card-header">
+			Create DFA
+		</div>
+		
+		<div class="card-body">
+		
+			<div class="row">
+				<div class="col-auto">
+					<div class="form-group">
+						{{ form.states.label(class="form-control-label") }}
+						{{ form.states(class="form-control") }}
+					</div>
+					<div class="form-group">
+						{{ form.alphabet.label(class="form-control-label") }}
+						{{ form.alphabet(class="form-control") }}
+					</div>
+					<div class="form-group">
+						{{ form.start_state.label(class="form-control-label") }}
+						{{ form.start_state(class="form-control") }}
+					</div>
+					<div class="form-group">
+						{{ form.accept_states.label(class="form-control-label") }}
+						{{ form.accept_states }}
+					</div>
+				</div>
+				<div class="col-auto">
+					Transitions (leave blank or e.g. 'C'):
+					<br></br>
+					<div data-toggle="fieldset" id="transition-fieldset">
+						<table class="table table-bordered" id="transitions">
+							<tr id="transition_headers">
+								<th> Source State </th>
+							</tr>
+						</table>
+					</div>
+				</div>
+			</div>
+			<div class="row justify-content-center">
+				<div class="col-xs-1 center block">
+					<div class="form-group">
+						{{ form.create(class="btn btn-outline-info") }}
+					</div>
+				</div>
+			</div>
+			{% if graph %}
+			<div class="row justify-content-center">
+				<div class="col-xs-1 center block">
+					<div class="form-group">
+						{{ form.minimize(class="btn btn-outline-info") }}
+					</div>
+				</div>
+			</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
+
+
+
+{% if graph %}
+
+
+<div class="container">
+	<div class="row">
+		<div class="col">
+			<div class="card">
+				<div class="card-header"> 
+					Graph
+				 </div>
+				<div class="card-body text-center">
+					{{graph|safe}}
+				</div>
+			</div>
+		</div>
+		{% if minimized_graph %}
+		<div class="col">
+			<div class="card">
+				<div class="card-header"> 
+					Minimized Graph 
+				</div>
+				<div class="card-body text-center">
+					{{minimized_graph|safe}}
+				</div>
+			</div>
+		</div>
+		{% endif %}
+	</div>
+</div>
+
+
+
+<div class="container">
+	<div class="card">
+		<div class="card-header">
+		 	Simulate
+		</div>
+		<div class="card-body">
+
+			<div class="row">
+				<div class="col-auto">	
+					<div class="form-group form-inline">		
+						{{ form.string_input.label(class="form-control-label mr-sm-2")}}
+						{{ form.string_input(class="form-control mr-sm-2")}}
+						{{ form.remaining.label(class="form-control-label mr-sm-2")}}
+						{{ form.remaining(readonly=True, class="form-control mr-sm-2")}}
+						{{ form.path.label(class="form-control-label mr-sm-2")}}
+						{{ form.path(readonly=True, class="form-control mr-sm-2")}}
+						{{ form.result.label(class="form-control-label mr-sm-2")}}
+						{{ form.result(readonly=True, class="form-control mr-sm-2")}}
+					</div>
+				</div>
+			</div>
+			<div class="row justify-content-center">
+				<div class="col-xs-1 center block">
+					<div class="form-group">
+						{{ form.step(class="btn btn-outline-info") }}
+					</div>
+				</div>
+			</div>
+			<div class="row justify-content-center">
+				<div class="col-xs-1 center block">
+					<div class="form-group">
+						{{ form.simulate(class="btn btn-outline-info") }}
+					</div>
+				</div>
+			</div>
+			<div class="row justify-content-center">
+				<div class="col-xs-1 center block">
+					<div class="form-group">
+						{{ form.reset(class="btn btn-danger") }}
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+
+
+
+
+
+
+{% endif %}
+</form>
+
+
+
+<script>
+
+	var states = document.getElementById("states");
+	var start_state = document.getElementById("start_state");
+	var alphabet = document.getElementById("alphabet");
+	var transitions = document.getElementById("transitions");
+	var transitions_headers = document.getElementById("transition_headers");
+	var result = document.getElementById("result");
+	var reload_trans = true;
+	var string_input = document.getElementById("string_input");
+	var step_btn = document.getElementById("step");
+	var simulate_btn = document.getElementById("simulate");
+
+
+	function init_page(){
+		alphabet_change();
+		state_rows();
+
+		toggle_sim_buttons();
+		
+	}
+
+
+	function state_change(){
+
+		state_select();
+		state_rows();
+	}
+
+	function alphabet_change(){
+		
+		alphabet_headers();
+		state_rows();
+
+	}
+
+	function string_input_change(){
+
+		step_btn.disabled = string_input.value.length == 0 ? true : false;
+		simulate_btn.disabled = string_input.value.length == 0 ? true : false;
+
+	}
+
+	function toggle_sim_buttons(){
+
+		step_btn.disabled = ((result.value.length > 0) || (string_input.value.length == 0)) ? true : false;
+		simulate_btn.disabled = ((result.value.length > 0) || (string_input.value.length == 0)) ? true : false;
+	}
+
+
+	function state_select (){
+
+
+		var states_arr = states.value.split(",");
+		var startHTML = "";
+		var acceptHTML= "";
+		for (var s of states_arr){
+			startHTML += '<option value=' + s + '>' + s + '</option>';
+			acceptHTML+= '<li><input name="accept_states" type="checkbox" value=' + s + '>\n<label>' + s + '</label></li>';
+		}
+
+		start_state.innerHTML = startHTML;
+		accept_states.innerHTML = acceptHTML;
+	}
+
+	function state_rows() {
+
+
+		var states_arr = states.value.split(",");
+		var alphabet_arr = alphabet.value.split(",");
+
+
+		var n_rows = transitions.rows.length;
+
+		if (reload_trans){
+			var old_trans = {{transitions | tojson }};
+			reload_trans = false;
+		}
+		else{
+			var old_trans = {};
+		}
+		
+		// clear table
+		for (var i = 1; i < n_rows; i++){
+			for (var j = 1; j < transitions.rows[0].cells.length; j++){
+				if (transitions.rows[1].cells[j] && transitions.rows[1].cells[j].childNodes[0]){
+					old_trans[transitions.rows[1].cells[j].childNodes[0].id] = transitions.rows[1].cells[j].childNodes[0].value;
+				}
+				
+			}
+			transitions.deleteRow(1);
+		}
+
+		for (var i = 1; i < states_arr.length + 1; i++){
+			var row = transitions.insertRow(i);
+			var cell = row.insertCell(0);
+			cell.innerHTML = states_arr[i - 1];
+			for (var j = 1; j < alphabet_arr.length + 1; j++){
+				cell = row.insertCell(j);
+				var old_val = "";
+				if ((states_arr[i - 1] + ";" + alphabet_arr[j - 1]) in old_trans){
+					old_val = old_trans[states_arr[i - 1] + ";" + alphabet_arr[j - 1]];
+				}
+				cell.innerHTML = '<input type=text id= "' + states_arr[i - 1] + ';' + alphabet_arr[j - 1] + '" name="' + states_arr[i - 1] + ';' + alphabet_arr[j - 1] + '" class="form-control col-xs-2" value="' + old_val + '">';
+			}
+		}
+	}
+
+
+	function alphabet_headers(){
+		var alphabet_arr = alphabet.value.split(",");
+		var headerHTML = "<th> Source State </th>";	
+		for (var s of alphabet_arr){
+			headerHTML += "<th>" + s + "</th>";
+		}
+		transition_headers.innerHTML = headerHTML;
+	}
+
+
+	states.onchange = state_change;
+	alphabet.onchange = alphabet_change;
+	string_input.onchange = string_input_change;
+
+	window.onload = init_page;
+
+
+</script>
+
+ {% endblock %}

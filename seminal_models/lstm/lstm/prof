@@ -1,0 +1,58 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  Ts/call  Ts/call  name    
+ 45.23   1310.21  1310.21                             simp_mat_mul_right_trans
+ 30.52   2194.24   884.03                             simp_mat_mul_add
+ 19.54   2760.22   565.98                             simp_mat_mul
+  1.17   2794.15    33.93                             simp_mat_mul_left_trans
+  0.78   2816.80    22.65                             forward_pass
+  0.61   2834.42    17.62                             add_to_embed_weight_gradient
+  0.60   2851.78    17.36                             backwards_pass
+  0.35   2861.93    10.15                             my_sigmoid
+  0.32   2871.23     9.30                             my_hadamard_add
+  0.25   2878.49     7.26                             my_cell_content_deriv
+  0.24   2885.54     7.05                             my_hadamard_right_tanh
+  0.17   2890.57     5.03                             my_update_param_calc
+  0.09   2893.18     2.61                             my_softmax
+  0.09   2895.69     2.51                             update_parameters
+  0.03   2896.45     0.76                             main
+  0.02   2896.97     0.52                             _init
+  0.00   2896.99     0.02                             init_model_parameters
+  0.00   2897.01     0.02                             populate_batch
+  0.00   2897.02     0.01                             frame_dummy
+  0.00   2897.03     0.01                             handle_collision
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2022 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
