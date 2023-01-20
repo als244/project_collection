@@ -874,14 +874,14 @@ __global__ void updateVars(int size, const float * gradients, float base_var_dec
 }
 
 // assume large 1-D launch
-__global__ void updateParams(int size, float * model_params, const float * means, const float * vars, float alpha_t, float cur_mean_decay, float cur_var_decay, float eps){
+__global__ void updateParams(int size, float * model_params, const float * means, const float * vars, float learning_rate, float cur_mean_decay, float cur_var_decay, float eps){
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
 	if (i >= size){
 		return;
 	}
 	float bias_corrected_mean = means[i] / (1 - cur_mean_decay);
 	float bias_corrected_var = vars[i] / (1 - cur_var_decay);
-	model_params[i] = model_params[i] - alpha_t * bias_corrected_mean / (sqrtf(bias_corrected_var) + eps);
+	model_params[i] = model_params[i] - learning_rate * bias_corrected_mean / (sqrtf(bias_corrected_var) + eps);
 	if (isnan(model_params[i])){
 		printf("ERROR: Set Param to nan at index: %d...resetting to 0\n", i);
 		return;
@@ -2453,9 +2453,6 @@ void update_parameters(Train_ResNet * trainer){
 	int param_size;
 	float *model_location, *grad_location, * mean_location, * var_location;
 	
-	// update learning rate
-	float alpha_t = learning_rate * sqrtf(1 - cur_var_decay) / (1 - cur_mean_decay);
-
 	for (int i = 0; i < n_locations; i++){
 		param_size = param_sizes[i];
 		model_location = model_params_locations[i];
@@ -2465,7 +2462,7 @@ void update_parameters(Train_ResNet * trainer){
 
 		updateMeans <<< ceil((float) param_size / MAX_THREAD_PER_BLOCK), MAX_THREAD_PER_BLOCK >>> (param_size, grad_location, base_mean_decay, mean_location);
 		updateVars <<< ceil((float) param_size / MAX_THREAD_PER_BLOCK), MAX_THREAD_PER_BLOCK >>> (param_size, grad_location, base_var_decay, var_location);
-		updateParams <<< ceil((float) param_size / MAX_THREAD_PER_BLOCK), MAX_THREAD_PER_BLOCK >>> (param_size, model_location, mean_location, var_location, alpha_t, cur_mean_decay, cur_var_decay, eps);
+		updateParams <<< ceil((float) param_size / MAX_THREAD_PER_BLOCK), MAX_THREAD_PER_BLOCK >>> (param_size, model_location, mean_location, var_location, learning_rate, cur_mean_decay, cur_var_decay, eps);
 
 		cudaMemset(grad_location, 0, param_size * sizeof(float));
 	}
@@ -2658,7 +2655,7 @@ int main(int argc, char *argv[]) {
 
 
 	// General Training Structure (holds hyperparameters and pointers to structs which have network values)
-	float LEARNING_RATE = 0.00002;
+	float LEARNING_RATE = 0.000001;
 	float MEAN_DECAY = 0.9;
 	float VAR_DECAY = 0.999;
 	float EPS = 0.0000001;
