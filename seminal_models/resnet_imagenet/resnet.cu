@@ -309,8 +309,8 @@ __global__ void doConvolution(const float * input, const float * weights, const 
 			}
 		}
 	}
-	//out[out_spatial_dim * out_spatial_dim * out_filters * sample_ind + out_spatial_dim * out_filters * out_spatial_row + out_filters * out_spatial_col + out_filter_id] = out_val + biases[out_filter_id];
-	out[out_spatial_dim * out_spatial_dim * out_filters * sample_ind + out_spatial_dim * out_filters * out_spatial_row + out_filters * out_spatial_col + out_filter_id] = out_val;
+	out[out_spatial_dim * out_spatial_dim * out_filters * sample_ind + out_spatial_dim * out_filters * out_spatial_row + out_filters * out_spatial_col + out_filter_id] = out_val + biases[out_filter_id];
+	//out[out_spatial_dim * out_spatial_dim * out_filters * sample_ind + out_spatial_dim * out_filters * out_spatial_row + out_filters * out_spatial_col + out_filter_id] = out_val;
 }
 
 
@@ -1049,7 +1049,7 @@ ConvBlock * init_conv_block(int incoming_filters, int incoming_spatial_dim, int 
 		cudaMalloc(&projection, projection_size * sizeof(float));
 		cudaMemset(projection, 0, projection_size * sizeof(float));
 		if (!is_zero){
-			init_weights_gaussian_device(gen, projection_size, projection, 0, 2.0 / incoming_filters);
+			init_weights_gaussian_device(gen, projection_size, projection, 0, 2.0 / (incoming_spatial_dim * incoming_spatial_dim * incoming_filters));
 		}
 		cudaMalloc(&bias_projection, expanded_depth * sizeof(float));
 		cudaMemset(bias_projection, 0, expanded_depth * sizeof(float));
@@ -1082,7 +1082,7 @@ Params * init_model_parameters(Dims * model_dims, curandGenerator_t * gen, bool 
 	int output_dim = model_dims -> output;
 
 	// init array to hold pointers to weights
-	// 3 * 4 weight arrays per conv block (weights, biases, gamma, beta per layer in block) + 4 * inital + fully connected + 4 * 2 projections
+	// 3 * 4 weight arrays per conv block (weights, biases, gamma, beta per layer in block) + 4 * inital + fully connected + 4 projections * 2
 	// ignoring biases + batch norm weights for now...
 	int n_locations = 13 + 12 * n_conv_blocks;
 	params -> n_locations = n_locations;
@@ -1694,8 +1694,7 @@ void prepreAndDoConvolutionDeriv(int in_spatial_dim, int kern_dim, int in_filter
 	dim3 gridDimDerivWeights(kern_dim, kern_dim, grid_dim);
 	dim3 blockDimDerivWeights(block_dim);
 	convolutionDerivWeights <<< gridDimDerivWeights, blockDimDerivWeights >>> (input, weights, out_deriv, in_spatial_dim, kern_dim, in_filters, out_filters, stride, batch_size, weight_deriv, is_block_dim_inp);
-
-	//convolutionDerivBiases <<< out_filters, 1 >>> (input, weights, out_deriv, in_spatial_dim, kern_dim, in_filters, out_filters, stride, batch_size, bias_deriv);
+	convolutionDerivBiases <<< out_filters, 1 >>> (input, weights, out_deriv, in_spatial_dim, kern_dim, in_filters, out_filters, stride, batch_size, bias_deriv);
 	
 }
 
@@ -2490,7 +2489,7 @@ void update_parameters(Train_ResNet * trainer){
 	int param_size;
 	float *model_location, *grad_location, * mean_location, * var_location;
 	
-	for (int i = 0; i < n_locations; i++){
+	for (int i = n_locations - 1; i >= 0; i--){
 		param_size = param_sizes[i];
 		model_location = model_params_locations[i];
 		grad_location = current_gradient_locations[i];
@@ -2808,7 +2807,7 @@ int main(int argc, char *argv[]) {
 
 
 	// General Training Structure (holds hyperparameters and pointers to structs which have network values)
-	float LEARNING_RATE = 0.0001;
+	float LEARNING_RATE = 0.00001;
 	float MEAN_DECAY = 0.9;
 	float VAR_DECAY = 0.999;
 	float EPS = 0.00000001;
@@ -2888,7 +2887,7 @@ int main(int argc, char *argv[]) {
 			batch_accuracy = 100 * ((float) BATCH_SIZE - batch_n_wrong) / ((float) BATCH_SIZE);
 
 			if (iter % PRINT_FREQ == 0){
-				printf("\nEpoch: %d, Batch: %d ----- Avg. Loss: %.4f, Accuracy: %.2f\n\n", epoch, iter, avg_batch_loss, batch_accuracy);
+				printf("\nEpoch: %d, Batch: %d ----- Avg. Loss: %.4f, Accuracy: %.2f%%\n\n", epoch, iter, avg_batch_loss, batch_accuracy);
 			}
 
 			/* DO BACKPROP */
