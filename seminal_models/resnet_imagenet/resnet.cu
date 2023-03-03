@@ -884,7 +884,7 @@ __global__ void crossEntropyDeriv(float * output_deriv, const int * correct_clas
 }
 
 // assume large 1-D launch
-__global__ void updateMeans(int size, const float * gradients, float base_mean_decay, float * prev_means, int loc_ind){
+__global__ void updateMeans(int size, const float * gradients, const float * model_params, float base_mean_decay, float weight_decay, float * prev_means, int loc_ind){
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
 	if (i >= size){
 		return;
@@ -897,26 +897,27 @@ __global__ void updateMeans(int size, const float * gradients, float base_mean_d
 		printf("ERROR in Update Means for Parameter at location: %d\nGradient is INF at index: %d...keeping same running mean\n\n", loc_ind, i);
 		return;
 	}
-	prev_means[i] = base_mean_decay * prev_means[i] + (1 - base_mean_decay) * gradients[i];
+	float grad_with_decay = gradients[i] + weight_decay * model_params[i];
+	prev_means[i] = base_mean_decay * prev_means[i] + (1 - base_mean_decay) * grad_with_decay;
 	
 }
 
 // assume large 1-D launch
-__global__ void updateVars(int size, const float * gradients, float base_var_decay, float * prev_vars, int loc_ind){
+__global__ void updateVars(int size, const float * gradients, const float * model_params, float base_var_decay, float weight_decay, float * prev_vars, int loc_ind){
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
 	if (i >= size){
 		return;
 	}
-	float grad = gradients[i];
-	if (isnan(grad)){
+	if (isnan(gradients[i])){
 		printf("ERROR in Update Vars for Parameter at location: %d\nGradient is NAN at index: %d...keeping same running var\n", loc_ind, i);
 		return;
 	}
-	if (isinf(grad)){
+	if (isinf(gradients[i])){
 		printf("ERROR in Update Vars for Parameter at location: %d\nGradient is INF at index: %d...keeping same running var\n", loc_ind, i);
 		return;
 	}
-	prev_vars[i] = base_var_decay * prev_vars[i] + (1 - base_var_decay) * grad * grad;
+	float grad_with_decay = gradients[i] + weight_decay * model_params[i];
+	prev_vars[i] = base_var_decay * prev_vars[i] + (1 - base_var_decay) * grad_with_decay * grad_with_decay;
 }
 
 // assume large 1-D launch
@@ -925,9 +926,10 @@ __global__ void updateParams(int size, float * model_params, const float * means
 	if (i >= size){
 		return;
 	}
-	float b = sqrtf(1 - cur_var_decay) / (1 - cur_mean_decay);
+	float mean_adj = means[i] / (1 - cur_mean_decay);
+	float var_adj = vars[i] / (1 - cur_var_decay);
 	float old_model_param = model_params[i];
-	model_params[i] = model_params[i] - learning_rate * (means[i] / (sqrtf(vars[i]) + eps)) * b;
+	model_params[i] = model_params[i] - (learning_rate * (mean_adj / (sqrtf(var_adj) + eps)) + weight_decay * old_model_param);
 	if (isnan(model_params[i])){
 		printf("ERROR: for Parameter at location: %d\nto NAN at index: %d...resetting to prev value\n", loc_ind, i);
 		model_params[i] = old_model_param;
@@ -1593,19 +1595,6 @@ void load_new_batch(Class_Metadata * class_metadata, Batch * batch_buffer){
 	// load current batch
 	memcpy(images_float_cpu, full_shard_images + cur_batch_in_shard * total_pixels, total_pixels * sizeof(float));
 	memcpy(correct_classes_cpu, full_shard_correct_classes + cur_batch_in_shard * batch_size, batch_size * sizeof(int));
-
-	bool is_all_zero = true;
-	for (int i = 0; i < total_pixels; i++){
-		if (images_float_cpu[i] != 0){
-			is_all_zero = false;
-			break;
-		}
-	}
-	if (is_all_zero){
-		printf("INPUT IMAGES, BATCH #%d = ALL ZERO... EXITING\n", cur_batch_in_shard);
-		exit(1);
-	}
-
 	
 	/* SAVING BATCH TO FILES FOR INSPECTION... */
 	// if (cur_batch_in_shard == 0){
@@ -3115,7 +3104,7 @@ void update_parameters(Train_ResNet * trainer){
 	// subtract 1 because incremented after loading...
 	int cur_batch_id = trainer -> cur_batch -> cur_batch_in_shard - 1;
 	int dump_id = (shard_n_images / batch_size) * cur_shard_id + cur_batch_id;
-	if (dump_id % 100 == 0){
+	if (dump_id % 1000 == 0){
 		printf("DUMPING TRAINER...!\n\n");
 		dump_trainer(dump_id, trainer);
 	}
@@ -3131,8 +3120,8 @@ void update_parameters(Train_ResNet * trainer){
 
 		dim3 gridDimUpdate(ceil((float) param_size / MAX_THREAD_PER_BLOCK));
 		dim3 blockDimUpdate(MAX_THREAD_PER_BLOCK);
-		updateMeans <<< gridDimUpdate, blockDimUpdate >>> (param_size, grad_location, base_mean_decay, mean_location, i);
-		updateVars <<< gridDimUpdate, blockDimUpdate >>> (param_size, grad_location, base_var_decay, var_location, i);
+		updateMeans <<< gridDimUpdate, blockDimUpdate >>> (param_size, grad_location, model_location, base_mean_decay, weight_decay, mean_location, i);
+		updateVars <<< gridDimUpdate, blockDimUpdate >>> (param_size, grad_location, model_location, base_var_decay, weight_decay, var_location, i);
 		updateParams <<< gridDimUpdate, blockDimUpdate >>> (param_size, model_location, mean_location, var_location, learning_rate, weight_decay, cur_mean_decay, cur_var_decay, eps, i);
 	}
 
@@ -3460,8 +3449,8 @@ int main(int argc, char *argv[]) {
 
 
 	// General Training Structure (holds hyperparameters and pointers to structs which have network values)
-	float LEARNING_RATE = 0.00002;
-	float WEIGHT_DECAY = 0.1;
+	float LEARNING_RATE = 0.001;
+	float WEIGHT_DECAY = 0.0001;
 	float MEAN_DECAY = 0.9;
 	float VAR_DECAY = 0.999;
 	float EPS = 0.0000001;
