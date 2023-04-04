@@ -586,14 +586,14 @@ __global__ void activationAndBatchNormDeriv(const float * input, const float * g
 	float partial_var_deriv = 0; 
 	float norm_temp_deriv_val;
 	float filt_var_three_halfs_power = -0.5 * powf(var_val + eps, -1.5);
-	float filt_var_recip_sqrt = -1.0 / sqrtf(var_val + eps);
+	float neg_filt_var_recip_sqrt = -1.0 / sqrtf(var_val + eps);
 	for (int s = 0; s < batch_size; s++){
 		for (int i = 0; i < spatial_dim; i++){
 			for (int j = 0; j < spatial_dim; j++){
 				index = spatial_dim * spatial_dim * filters * s + spatial_dim * filters * i + filters * j + filter_id;
 				norm_temp_deriv_val = normalized_temp_deriv[index];
 				dVar += norm_temp_deriv_val * (input[index] - mean_val) * filt_var_three_halfs_power;
-				dMean += norm_temp_deriv_val * filt_var_recip_sqrt;
+				dMean += norm_temp_deriv_val * neg_filt_var_recip_sqrt;
 				partial_var_deriv += -2 * (input[index] - mean_val);
 			}
 		}
@@ -608,7 +608,7 @@ __global__ void activationAndBatchNormDeriv(const float * input, const float * g
 		for (int i = 0; i < spatial_dim; i++){
 			for (int j = 0; j < spatial_dim; j++){
 				index = spatial_dim * spatial_dim * filters * s + spatial_dim * filters * i + filters * j + filter_id;
-				input_deriv[index] = normalized_temp_deriv[index] * filt_var_recip_sqrt + dVar * (2 * (input[index] - mean_val)) / n_samples + dMean / n_samples;
+				input_deriv[index] = normalized_temp_deriv[index] * (-1 * neg_filt_var_recip_sqrt) + dVar * (2 * (input[index] - mean_val)) / n_samples + dMean / n_samples;
 			}
 		}
 	}
@@ -1062,7 +1062,7 @@ ConvBlock * init_conv_block(int incoming_filters, int incoming_spatial_dim, int 
 	conv_block -> depth_expansion = depth_expansion;
 	conv_block -> bias_depth_expansion = bias_depth_expansion;
 
-	norm_expansion = init_batch_norm(incoming_spatial_dim, expanded_depth, 0.0, is_zero);
+	norm_expansion = init_batch_norm(incoming_spatial_dim, expanded_depth, 1.0, is_zero);
 	conv_block -> norm_expansion = norm_expansion;
 
 	float * projection, *bias_projection;
@@ -2129,9 +2129,9 @@ void backwards_pass(Train_ResNet * trainer){
 	// divide by the batch size because loss is sum across all batches...
 	// NOT SURE IF WE WANT TO DO AVERAGE HERE OR NOT...?
 	
-	// dim3 gridDimTakeAvgDeriv(output_dim);
-	// dim3 blockDimTakeAvgDeriv(batch_size);
-	// averageDerivOverBatchSize <<< gridDimTakeAvgDeriv, blockDimTakeAvgDeriv >>> (output_layer_deriv, output_dim, batch_size);
+	dim3 gridDimTakeAvgDeriv(output_dim);
+	dim3 blockDimTakeAvgDeriv(batch_size);
+	averageDerivOverBatchSize <<< gridDimTakeAvgDeriv, blockDimTakeAvgDeriv >>> (output_layer_deriv, output_dim, batch_size);
 
 	printDeviceData("CROSS ENTROPY DERIV", output_layer_deriv, print_size);
 
@@ -2803,6 +2803,16 @@ void dump_conv_block_activation(int dump_id, Train_ResNet * trainer, Activation_
 	dump_batch_norm_cache(trainer, batchnorm_filepath_dup, activation_conv_block -> norm_post_expanded);
 	free(batchnorm_filepath_dup);
 
+	/* EXPANDED NORM VALUES */
+	float * cpu_expanded_norm = (float *) malloc(expanded_size * sizeof(float));
+	cudaMemcpy(cpu_expanded_norm, activation_conv_block -> post_expanded_norm_vals, expanded_size * sizeof(float), cudaMemcpyDeviceToHost);
+	print_ret = asprintf(&filepath_dup, "%sexpanded_post_norm.buffer", filepath);
+	fp = fopen(filepath_dup, "wb");
+	n_wrote = fwrite(cpu_expanded_norm, sizeof(float), expanded_size, fp);
+	fclose(fp);
+	free(filepath_dup);
+	free(cpu_expanded_norm);
+
 
 	/* (TRANSFORMED) RESIDUAL */
 
@@ -3449,8 +3459,8 @@ int main(int argc, char *argv[]) {
 
 
 	// General Training Structure (holds hyperparameters and pointers to structs which have network values)
-	float LEARNING_RATE = 0.001;
-	float WEIGHT_DECAY = 0.0001;
+	float LEARNING_RATE = 0.0001;
+	float WEIGHT_DECAY = 0;
 	float MEAN_DECAY = 0.9;
 	float VAR_DECAY = 0.999;
 	float EPS = 0.0000001;
