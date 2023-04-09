@@ -1001,16 +1001,16 @@ ConvBlock * init_conv_block(int incoming_filters, int incoming_spatial_dim, int 
 	float * bias_depth_reduction, * bias_spatial, * bias_depth_expansion;
 	int depth_reduction_size, spatial_size, depth_expansion_size;
 	int bias_depth_reduction_size, bias_spatial_size, bias_depth_expansion_size;
-	float depth_reduction_fan_in, spatial_fan_in, depth_expansion_fan_in;
+	float depth_reduction_fan_in_plus_fan_out, spatial_fan_in_plus_fan_out, depth_expansion_fan_in_plus_fan_out;
 
 	BatchNorm *norm_depth_reduction, *norm_spatial, *norm_expansion, *norm_projection;
 
 	depth_reduction_size = incoming_filters * reduced_depth;
-	depth_reduction_fan_in = incoming_spatial_dim * incoming_spatial_dim * incoming_filters;
+	depth_reduction_fan_in_plus_fan_out = incoming_filters + reduced_depth;
 	cudaMalloc(&depth_reduction, depth_reduction_size * sizeof(float));
 	cudaMemset(depth_reduction, 0, depth_reduction_size * sizeof(float));
 	if (!is_zero){
-		init_weights_gaussian_device(gen, depth_reduction_size, depth_reduction, 0, 2.0 / depth_reduction_fan_in);
+		init_weights_gaussian_device(gen, depth_reduction_size, depth_reduction, 0, 2.0 / depth_reduction_fan_in_plus_fan_out);
 	}
 
 	bias_depth_reduction_size = reduced_depth;
@@ -1021,11 +1021,11 @@ ConvBlock * init_conv_block(int incoming_filters, int incoming_spatial_dim, int 
 
 
 	spatial_size = reduced_depth * reduced_depth * 3 * 3;
-	spatial_fan_in = incoming_spatial_dim * incoming_spatial_dim * reduced_depth;
+	spatial_fan_in_plus_fan_out = (3 * 3) * (reduced_depth + reduced_depth);
 	cudaMalloc(&spatial, spatial_size * sizeof(float));
 	cudaMemset(spatial, 0, spatial_size * sizeof(float));
 	if (!is_zero){
-		init_weights_gaussian_device(gen, spatial_size, spatial, 0, 2.0 / spatial_fan_in);
+		init_weights_gaussian_device(gen, spatial_size, spatial, 0, 2.0 / spatial_fan_in_plus_fan_out);
 	}
 
 	bias_spatial_size = reduced_depth;
@@ -1039,11 +1039,11 @@ ConvBlock * init_conv_block(int incoming_filters, int incoming_spatial_dim, int 
 	norm_spatial = init_batch_norm(incoming_spatial_dim, reduced_depth, 1.0, is_zero);
 
 	depth_expansion_size = expanded_depth * reduced_depth;
-	depth_expansion_fan_in = incoming_spatial_dim * incoming_spatial_dim * reduced_depth;
+	depth_expansion_fan_in_plus_fan_out = reduced_depth + expanded_depth;
 	cudaMalloc(&depth_expansion, depth_expansion_size * sizeof(float));
 	cudaMemset(depth_expansion, 0, depth_expansion_size * sizeof(float));
 	if (!is_zero){
-		init_weights_gaussian_device(gen, depth_expansion_size, depth_expansion, 0, 2.0 / depth_expansion_fan_in);
+		init_weights_gaussian_device(gen, depth_expansion_size, depth_expansion, 0, 2.0 / depth_expansion_fan_in_plus_fan_out);
 	}
 
 	bias_depth_expansion_size = expanded_depth;
@@ -1076,11 +1076,18 @@ ConvBlock * init_conv_block(int incoming_filters, int incoming_spatial_dim, int 
 
 	// assuming only project when depths are different (all projections in resnet-50 this way)
 	// could later change to adapt to just spatial transform...
+	int projection_fan_in_plus_fan_out;
 	if (incoming_filters != expanded_depth){
 		cudaMalloc(&projection, projection_size * sizeof(float));
 		cudaMemset(projection, 0, projection_size * sizeof(float));
+		if (stride == 2){
+			projection_fan_in_plus_fan_out = 3 * 3 * (incoming_filters + expanded_depth);
+		}
+		else{
+			projection_fan_in_plus_fan_out = incoming_filters + expanded_depth;
+		}
 		if (!is_zero){
-			init_weights_gaussian_device(gen, projection_size, projection, 0, 2.0 / (incoming_spatial_dim * incoming_spatial_dim * incoming_filters));
+			init_weights_gaussian_device(gen, projection_size, projection, 0, 2.0 / (projection_fan_in_plus_fan_out));
 		}
 		cudaMalloc(&bias_projection, expanded_depth * sizeof(float));
 		cudaMemset(bias_projection, 0, expanded_depth * sizeof(float));
@@ -1126,11 +1133,11 @@ Params * init_model_parameters(Dims * model_dims, curandGenerator_t * gen, bool 
 	// init first 7 * 7 conv_layer
 	float * init_conv_layer;
 	int init_conv_size = init_kernel_dim * init_kernel_dim * init_conv_filters * 3;
-	float init_conv_fan_in = 3 * input_dim * input_dim;
+	float init_conv_fan_in_plus_fan_out = 7 * 7 * (3 + init_conv_filters);
 	cudaError_t malloc_err = cudaMalloc(&init_conv_layer,  init_conv_size * sizeof(float));
 	cudaError_t memset_err = cudaMemset(init_conv_layer, 0, init_conv_size * sizeof(float));
 	if (!is_zero){
-		init_weights_gaussian_device(gen, init_conv_size, init_conv_layer, 0, 2.0 / init_conv_fan_in);
+		init_weights_gaussian_device(gen, init_conv_size, init_conv_layer, 0, 2.0 / init_conv_fan_in_plus_fan_out);
 	}
 	params -> init_conv_layer = init_conv_layer;
 	int loc_ind = 0;
@@ -2129,9 +2136,9 @@ void backwards_pass(Train_ResNet * trainer){
 	// divide by the batch size because loss is sum across all batches...
 	// NOT SURE IF WE WANT TO DO AVERAGE HERE OR NOT...?
 	
-	dim3 gridDimTakeAvgDeriv(output_dim);
-	dim3 blockDimTakeAvgDeriv(batch_size);
-	averageDerivOverBatchSize <<< gridDimTakeAvgDeriv, blockDimTakeAvgDeriv >>> (output_layer_deriv, output_dim, batch_size);
+	// dim3 gridDimTakeAvgDeriv(output_dim);
+	// dim3 blockDimTakeAvgDeriv(batch_size);
+	// averageDerivOverBatchSize <<< gridDimTakeAvgDeriv, blockDimTakeAvgDeriv >>> (output_layer_deriv, output_dim, batch_size);
 
 	printDeviceData("CROSS ENTROPY DERIV", output_layer_deriv, print_size);
 
@@ -3523,7 +3530,7 @@ int main(int argc, char *argv[]) {
 			// loss
 			batch_loss = 0;
 			for (int s = 0; s < BATCH_SIZE; s++){
-				batch_loss += -1 * logf(pred[correct[s] * BATCH_SIZE + s]);
+				batch_loss += -1 * logf(pred[s * BATCH_SIZE + correct[s]]);
 			}
 			avg_batch_loss = batch_loss / BATCH_SIZE;
 			epoch_loss += batch_loss;
@@ -3531,9 +3538,9 @@ int main(int argc, char *argv[]) {
 			// accuracy
 			batch_n_wrong = 0;
 			for (int s = 0; s < BATCH_SIZE; s++){
-				val_pred_correct = pred[correct[s] * BATCH_SIZE + s];
+				val_pred_correct = pred[s * BATCH_SIZE + correct[s]];
 				for (int c = 0; c < N_CLASSES; c++){
-					if ((c != correct[s]) && (pred[c * BATCH_SIZE + s] >= val_pred_correct)){
+					if ((c != correct[s]) && (pred[s * BATCH_SIZE + c] >= val_pred_correct)){
 						batch_n_wrong++;
 						break;
 					}
