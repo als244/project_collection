@@ -54,23 +54,6 @@ void init_weights_gaussian_device(curandGenerator_t * gen, int size, float *X, f
  	curandStatus_t status = curandGenerateNormal(*gen, X, (size_t) size, mean, stddev);
  }
 
-// RANDOM NUMBER GENERATOR ON DEVICE CAN'T USE C LIBRARY RAND(), so use cuRAND() library instead...
-// __global__ void sample_gaussian(int size, float *X, float mean, float var) {
-// 	int i = blockIdx.x * blockDim.x + threadIdx.x;
-// 	if (i >= size){
-// 		return;
-// 	}
-// 	if (var == 0){
-// 		X[i] = mean;
-// 		return;
-// 	}
-// 	float x = (float)rand() / RAND_MAX;
-//   	float y = (float)rand() / RAND_MAX;
-//   	float z = sqrtf(-2 * logf(x)) * cosf(2 * M_PI * y);
-//   	float std = sqrtf(var);
-//   	float val = std * z + mean;
-//   	X[i] = val;
-// }
 
 // ASSUME 1-D launch
 __global__ void addVec(int size, float * A, float * B, float * out){
@@ -190,71 +173,6 @@ __global__ void transpose(const float *in, int rows, int cols, float * out) {
 
   out[col_ind * rows + row_ind] = in[row_ind * cols + col_ind];
 }
-
-
-// TRIED TO OPTIMIZE: MAKE SURE THIS WORKS WITH SHARED MEM AND LAUNCH SPECS (FORGOT HOW I DID IT...)
-// 48KB is maximum value for shared memory, passed into this kernel as third param <<< gridDim, blockDim, SHARED_MEM_BYTES >>>
-// launch grid dimensions as (OUT_SPATIAL_DIM, OUT_SPATIAL_DIM, OUT_FILTER_CHUNK) blocks, and launch with block dim as (out_filt_rows_shared, sub_batch) threads
-// thus 12k floats is max for shared memory per block
-// first get as many output filter weights in shared memory as possible, but have separate blocks working on different chunks (OUT_FILTER_CHUNK * out_filt_rows_shared = out_filt)
-// then stream samples in batch to compute output value for each sample and output filter. Eac sub_batch will have batch_size / dim(sub_batch) samples to go over
-// __global__ void doConvolutionOptimized(const float * input, const float * weights, const float * biases, int spatial_dim, int kern_dim, int in_filters, int out_filters, int stride, int batch_size, float * out){
-
-// 	// will consist of (shared_out_filt_rows X (kern_dim^2 * in_filt) conv_weight matrix
-// 	extern __shared__ float shared_mem[];
-
-
-// 	// (Calling "Kernel" a 3-D obj of weights where there is 2-D conv filter for each input channel)
-// 	int kernel_size = (kern_dim * kern_dim * in_filters);
-
-// 	int spatial_row_start = stride * blockIdx.x;
-// 	int spatial_col_start = stride * blockIdx.y;
-// 	int out_spatial_dim = spatial_dim / stride;
-
-// 	int half_kernel_dim = kern_dim / 2;
-// 	int out_filter_id, spatial_row, spatial_col;
-// 	float out_val, spatial_val;
-// 	out_filter_id = blockIdx.z * blockDim.x + threadIdx.x;
-// 	if (out_filter_id >= out_filters){
-// 		return;
-// 	}
-
-// 	for (int j = 0; j < kernel_size; j++){
-// 		shared_mem[threadIdx.x * kernel_size + j] = weights[out_filter_id * kernel_size + j];
-// 	}
-
-// 	int samp_per_subbatch = ceil((float) batch_size / blockDim.y);
-// 	int samp_start = samp_per_subbatch * threadIdx.y;
-// 	int samp_end = min(batch_size, samp_start + samp_per_subbatch);
-// 	int kernel_ind;
-// 	// probably could be more efficient by reducing number of output filters in shared mem, and adding tiled spatial....
-// 	for (int sample_ind = samp_start; sample_ind < samp_end; sample_ind++){
-// 		out_val = 0;
-// 		for (int row_offset = -half_kernel_dim; row_offset <= half_kernel_dim; row_offset++){
-// 			for (int col_offset = -half_kernel_dim; col_offset <= half_kernel_dim; col_offset++){
-// 				for (int channel = 0; channel < in_filters; channel++){
-						
-// 					// compute spatial value
-// 					spatial_row = spatial_row_start + row_offset;
-// 					spatial_col = spatial_col_start + col_offset;
-// 					kernel_ind = kern_dim * in_filters * (row_offset + half_kernel_dim) + in_filters * (col_offset + half_kernel_dim) + channel;
-// 					if ((spatial_row < 0) || (spatial_row >= spatial_dim) || (spatial_col < 0) || (spatial_col >= spatial_dim)) {
-// 						spatial_val = 0;
-// 					}
-// 					else{
-// 						spatial_val = input[spatial_dim * spatial_dim * in_filters * sample_ind + spatial_dim * in_filters * spatial_row + in_filters * spatial_col + channel];
-// 					}
-
-// 					// multiply with conv weight
-// 					// threadIdx.x specifies the output filter id
-// 					// kernel_ind specifies the (x, y, input_channel)
-// 					out_val += shared_mem[threadIdx.x * kernel_size + kernel_ind] * spatial_val;
-// 				}
-// 			}
-// 		}
-// 		out[out_spatial_dim * out_spatial_dim * out_filters * sample_ind + out_spatial_dim * out_filters * blockIdx.x + out_filters * blockIdx.y + out_filter_id] = out_val + biases[out_filter_id];
-// 	}
-// }
 
 
 // FOR NOW KEEP NAIVE (UN-OPTIMIZED)...
@@ -729,100 +647,6 @@ __global__ void filterAvgPoolDeriv(const float * pooled_deriv, int filters, int 
 		}
 	}
 }
-
-
-
-// hardcoded conv kernel for initial 7x7, stride 2, 64 output filter convolutional layer...
-// launching (14, 112, BATCH_SIZE) dim blocks where each block has 112/14=8 phases to utilize shared memory. Each block will have dim (64).
-// Each block will contribute 16 unique spatial inds * 64 output filters * 32 Batch Size to the output of layer
-// each phase loads stride new rows into shared memory, then multiples new spatial shared_mem with conv_weights, accounting for conv weight col permuation 
-
-/* MAY OR MAY NOT WORK... (commented becuase not used...) */
-
-// __global__ void optimized_init_conv(const float * input, const float * weights, float * out){
-
-// 	__shared__ float conv_weights[64][147];
-// 	__shared__ float spatial_vals[147];
-
-// 	// index
-// 	int output_filter = threadIdx.x;
-// 	int sample_ind = blockIdx.z;
-
-// 	// assume weights are in order of outfilter 0: [R_0,0, B_0,0, G_0,0, R_0,1, G_0,1, B_0,1....R_6,6, G_6,6, B_6,6], outfilter 1: [...], ...., outfilter 63: [...]
-// 	for (int kernel_ind = 0; kernel_ind < 147; kernel_ind++){
-// 		conv_weights[output_filter][kernel_ind] = weights[output_filter * 147 + kernel_ind];
-// 	}o
-
-// 	// 2 * vals because stride of 2
-// 	int spatial_row_start = (224 / blockDim.x) * blockIdx.x;
-// 	int spatial_col_start = 2 * blockIdx.y;
-// 	int spatial_row, spatial_col, kernel_ind;
-// 	int half_kernel_dim = 3;
-// 	for (int row_offset = -half_kernel_dim; row_offset <= half_kernel_dim;  row_offset++){
-// 		for (int col_offset = -half_kernel_dim; col_offset <= half_kernel_dim; col_offset++){
-// 			for (int channel = 0; channel < 3; channel++){
-// 				spatial_row = spatial_row_start + row_offset;
-// 				spatial_col = spatial_col_start + col_offset;
-// 				kernel_ind = 7 * 3 * (row_offset + half_kernel_dim) + 3 * (col_offset + half_kernel_dim) + channel;
-// 				if ((spatial_row < 0) || (spatial_row >= 224) || (spatial_col < 0) || (spatial_col >= 224)) {
-// 					spatial_vals[kernel_ind] = 0;
-// 				}
-// 				else{
-// 					spatial_vals[kernel_ind] = input[224 * 224 * 3 * sample_ind + 224 * 3 * spatial_row + 3 * spatial_col + channel];
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	__syncthreads();
-
-// 	float val = 0;
-// 	int circular_row = 0;
-// 	int out_spatial_row = (112 / blockDim.x) * blockIdx.x;
-// 	int out_spatial_col = blockIdx.y;
-// 	int new_top_row = 0;
-// 	for (int phase = 0; phase < 8; phase++){
-
-// 		// compute matrix mult to get (output_filt x batch_size) result. this is for a single receptive field across depth and batches
-// 		// iterative over phases to get multiple receptive fields and exploit spatial locality
-// 		val = 0;
-// 		for (int kern_row = 0; kern_row < 7; kern_row++){
-// 			for (int kern_col = 0; kern_col < 7; kern_col++){
-// 				for (int ch = 0; ch < 3; ch++){
-// 					circular_row = (kern_row + 2 * phase) % 7;
-// 					val += conv_weights[output_filter][7 * 3 * kern_row + 3 * kern_col + ch] * spatial_vals[7 * 3 * circular_row + 3 * kern_col + ch];
-// 				}
-// 			}
-// 		}
-
-// 		out[112 * 112 * 64 * sample_ind + 112 * 64 * out_spatial_row + 64 * out_spatial_col + output_filter] = val;
-
-// 		__syncthreads();
-
-// 		int row_to_replace, replace_ind;
-// 		for (int i = 1; i <= 2; i++){
-// 			row_to_replace = (2 * phase) + i % 7;
-// 			spatial_row = spatial_row_start + half_kernel_dim + 2 * phase + i; 
-// 			for (int col_offset = -half_kernel_dim; col_offset <= half_kernel_dim; col_offset++){
-// 				for (int channel = 0; channel < 3; channel++){
-// 					spatial_col = spatial_col_start + col_offset;
-// 					replace_ind = 7 * 3 * row_to_replace + 3 * (col_offset + half_kernel_dim) + channel;
-// 					if ((spatial_row < 0) || (spatial_row >= 224) || (spatial_col < 0) || (spatial_col >= 224)) {
-// 						spatial_vals[replace_ind][sample_ind] = 0;
-// 					}
-// 					else{
-// 						spatial_vals[replace_ind][sample_ind] = input[224 * 224 * 3 * sample_ind + 224 * 3 * spatial_row + 3 * spatial_col + channel];
-// 					}
-// 				}
-// 			}
-// 		}
-// 		out_spatial_row++;
-
-// 		__syncthreads();
-// 	}
-// }
-
-
 
 __global__ void doActivation(int size, const float * input, float * output){
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -1684,25 +1508,6 @@ Class_Metadata * populate_class_info(char * label_filename, char * synset_filena
 
 
 /* PREP AND LAUNCHING CUDA KERNELS! */
-
-
-// tried to write optimized conv kernel. will wait to debug...
-// void prepareAndDoConvolutionOptimized(int in_spatial_dim, int kern_dim, int in_filters, int out_filters,  int stride, int batch_size, 
-// 																float * input, float * weights, float * biases, float * output){
-
-// 	int out_filter_row_size = kern_dim * kern_dim * in_filters;
-// 	int max_out_filter_rows = MAX_SHARED_MEM_FLOATS / out_filter_row_size;
-// 	int out_filter_chunks = ceil((float) out_filters / max_out_filter_rows);
-// 	int shared_mem_size = out_filter_row_size * max_out_filter_rows;
-// 	int out_spatial_dim = in_spatial_dim / stride;
-// 	int max_subatch_size = MAX_THREAD_PER_BLOCK / max_out_filter_rows;
-
-// 	dim3 gridDimConv(out_spatial_dim, out_spatial_dim, out_filter_chunks);
-// 	dim3 blockDimConv(max_out_filter_rows, max_subatch_size);
-
-// 	doConvolution <<< gridDimConv, blockDimConv, shared_mem_size >>> (input, weights, biases, in_spatial_dim, kern_dim, in_filters, out_filters, stride, batch_size, output);
-
-// }
 
 
 void prepareAndDoConvolution(int in_spatial_dim, int kern_dim, int in_filters, int out_filters,  int stride, int batch_size, 
