@@ -21,24 +21,6 @@
 #define MAX_THREAD_PER_BLOCK_INCL_REG 512
 
 
-
-
-// used to hide all print statements for device data
-#define TO_PRINT false
-
-#define CUDA_CALL(x) do { if((x)!=cudaSuccess) { \
-    printf("Error at %s:%d\n",__FILE__,__LINE__);\
-    return EXIT_FAILURE;}} while(0)
-#define CURAND_CALL(x) do { if((x) != CURAND_STATUS_SUCCESS) { \
-	printf("Error at %s:%d\n",__FILE__,__LINE__);\
-	return EXIT_FAILURE;}} while(0)
-
-
-/* DECLARING FUNCTIONS HERE */
-void testConvolution(int in_spatial_dim, int kern_dim, int in_filters, int out_filters,  int stride, int batch_size, 
-																float * input, float * weights, float * output);
-
-
 /* START OF KERNELS/FUNCTIONS */
 
 __global__ void setVal(int size, float val, float *out){
@@ -54,23 +36,6 @@ void init_weights_gaussian_device(curandGenerator_t * gen, int size, float *X, f
  	curandStatus_t status = curandGenerateNormal(*gen, X, (size_t) size, mean, stddev);
  }
 
-// RANDOM NUMBER GENERATOR ON DEVICE CAN'T USE C LIBRARY RAND(), so use cuRAND() library instead...
-// __global__ void sample_gaussian(int size, float *X, float mean, float var) {
-// 	int i = blockIdx.x * blockDim.x + threadIdx.x;
-// 	if (i >= size){
-// 		return;
-// 	}
-// 	if (var == 0){
-// 		X[i] = mean;
-// 		return;
-// 	}
-// 	float x = (float)rand() / RAND_MAX;
-//   	float y = (float)rand() / RAND_MAX;
-//   	float z = sqrtf(-2 * logf(x)) * cosf(2 * M_PI * y);
-//   	float std = sqrtf(var);
-//   	float val = std * z + mean;
-//   	X[i] = val;
-// }
 
 // ASSUME 1-D launch
 __global__ void addVec(int size, float * A, float * B, float * out){
@@ -625,14 +590,6 @@ __global__ void updateMeans(int size, const float * gradients, const float * mod
 	if (i >= size){
 		return;
 	}
-	if (isnan(gradients[i])){
-		printf("ERROR in Update Means for Parameter at location: %d\nGradient is NAN at index: %d...keeping same running mean\n\n", loc_ind, i);
-		return;
-	}
-	if (isinf(gradients[i])){
-		printf("ERROR in Update Means for Parameter at location: %d\nGradient is INF at index: %d...keeping same running mean\n\n", loc_ind, i);
-		return;
-	}
 	float grad_with_decay = gradients[i] + weight_decay * model_params[i];
 	prev_means[i] = base_mean_decay * prev_means[i] + (1 - base_mean_decay) * grad_with_decay;
 	
@@ -642,14 +599,6 @@ __global__ void updateMeans(int size, const float * gradients, const float * mod
 __global__ void updateVars(int size, const float * gradients, const float * model_params, float base_var_decay, float weight_decay, float * prev_vars, int loc_ind){
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
 	if (i >= size){
-		return;
-	}
-	if (isnan(gradients[i])){
-		printf("ERROR in Update Vars for Parameter at location: %d\nGradient is NAN at index: %d...keeping same running var\n", loc_ind, i);
-		return;
-	}
-	if (isinf(gradients[i])){
-		printf("ERROR in Update Vars for Parameter at location: %d\nGradient is INF at index: %d...keeping same running var\n", loc_ind, i);
 		return;
 	}
 	float grad_with_decay = gradients[i] + weight_decay * model_params[i];
@@ -666,16 +615,6 @@ __global__ void updateParams(int size, float * model_params, const float * means
 	float var_adj = vars[i] / (1 - cur_var_decay);
 	float old_model_param = model_params[i];
 	model_params[i] = model_params[i] - (learning_rate * (mean_adj / (sqrtf(var_adj) + eps)) + weight_decay * old_model_param);
-	if (isnan(model_params[i])){
-		printf("ERROR: for Parameter at location: %d\nto NAN at index: %d...resetting to prev value\n", loc_ind, i);
-		model_params[i] = old_model_param;
-		return;
-	}
-	if (isinf(model_params[i])){
-		printf("ERROR: for Parameter at location: %d\nto INF at index: %d...resetting to prev value\n", loc_ind, i);
-		model_params[i] = old_model_param;
-		return;
-	}
 }
 
 /* PREP AND LAUNCHING CUDA KERNELS! */
@@ -804,6 +743,16 @@ void prepareAndDoMatMulRightTranspose(const float * left, const float * right_or
 	matMul <<< gridDimMatMul, blockDimMatMul >>> (left, temp_right, left_rows, left_cols, right_orig_rows, out);
 	cudaFree(temp_right);
 }
+
+
+
+
+
+
+
+
+
+
 
 
 /* INITIALIZE CORE MODEL STRUCTURES */
@@ -1366,6 +1315,14 @@ Batch * init_general_batch(int n_images, int image_size, int image_dim, int shar
 	return batch;
 }
 
+
+
+
+
+
+
+
+
 /* FUNCTIONS TO DUMP OUT CONTENTS OF TRAINER/MODEL */
 
 void dump_parameters(int dump_id, Train_ResNet * trainer){
@@ -1832,6 +1789,11 @@ void dump_trainer(int dump_id, Train_ResNet * trainer){
 }
 
 
+
+
+
+
+
 /* FUNCTION TO CHECK FOR NAN/INF TO STOP AND DUMP TRAINING PROCEDURE... */
 
 void check_errors(Train_ResNet * trainer, int param_size, float * model_location, float * grad_location, float * mean_location, float * var_location, int location_ind){
@@ -1864,8 +1826,16 @@ void check_errors(Train_ResNet * trainer, int param_size, float * model_location
 	free(cpu_param_var);
 }
 
-/* READING METADATA */
-// READ CLASSES AND LABELS!
+
+
+
+
+
+
+
+/* READING METADATA  */
+
+// Read classes and labels before training begins!
 // reading a text file line by line into a buffer
 // pre-allocate buffer and specify type
 void text_file_to_buffer(void * buffer, char * filename, const char * type){
@@ -1919,6 +1889,13 @@ Class_Metadata * populate_class_info(char * label_filename, char * synset_filena
 
 	return classes;
 }
+
+
+
+
+
+
+
 
 /* THE CORE FUNCTIONS: loading data, forward_pass, backwards_pass, optimizer */
 
@@ -2727,6 +2704,14 @@ void update_parameters(Train_ResNet * trainer){
 	trainer -> cur_mean_decay = cur_mean_decay;
 	trainer -> cur_var_decay = cur_var_decay;
 }
+
+
+
+
+
+
+
+
 
 int main(int argc, char *argv[]) {
 
